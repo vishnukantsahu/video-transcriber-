@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Video Transcriber</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { font-family: 'Segoe UI', sans-serif; background:#f2f2f2; color:#333; }
+    .container {
+      max-width:480px;
+      margin:2rem auto;
+      padding:1.5rem;
+      background:#fff;
+      border-radius:12px;
+      box-shadow:0 2px 12px rgba(0,0,0,0.1);
+    }
+    .logo { text-align:center; font-size:1.5rem; font-weight:bold; margin-bottom:0.5rem; }
+    .stats { text-align:center; color:#666; margin-bottom:1.5rem; }
+
+    .btn {
+      display:block;
+      width:100%;
+      padding:0.75rem;
+      margin:1rem 0;
+      font-size:1rem;
+      border:2px solid #007bff;
+      border-radius:6px;
+      background:transparent;
+      color:#007bff;
+      cursor:pointer;
+      transition: transform 0.1s, background 0.2s, color 0.2s;
+    }
+    .btn:hover { background:#007bff; color:#fff; }
+    .btn:active { transform:scale(0.95); }
+
+    .section { display:none; animation:fadeIn 0.4s ease forwards; }
+    @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+
+    .input-group { margin-bottom:1rem; }
+    .input-group label { display:block; font-weight:600; margin-bottom:0.3rem; }
+    .input-group input[type="text"],
+    .input-group input[type="password"],
+    .input-group input[type="file"] {
+      width:100%;
+      padding:0.5rem;
+      border:1px solid #ccc;
+      border-radius:5px;
+      font-size:1rem;
+    }
+    .transcript {
+      margin-top:1rem;
+      padding:1rem;
+      background:#f9f9f9;
+      border-left:4px solid #007bff;
+      border-radius:6px;
+      white-space:pre-wrap;
+      font-size:0.95rem;
+      color:#333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">Video Transcriber</div>
+    <div class="stats" id="stats">22,87,157 hours transcribed</div>
+
+    <button class="btn" id="openDashboard">OPEN DASHBOARD</button>
+
+    <div class="section" id="dashboard">
+      <div class="input-group">
+        <label for="apiKey">OpenAI API Key</label>
+        <input type="password" id="apiKey" placeholder="sk-..." />
+      </div>
+      <div class="input-group">
+        <label for="videoLink">Video Link (mp3/mp4 URL)</label>
+        <input type="text" id="videoLink" placeholder="https://..." />
+      </div>
+      <div class="input-group">
+        <label for="videoFile">Or Upload Video File</label>
+        <input type="file" id="videoFile" accept="audio/*,video/*" />
+      </div>
+      <button class="btn" id="transcribeBtn">Transcribe</button>
+      <div class="transcript" id="output" style="display:none;"></div>
+    </div>
+  </div>
+
+  <script>
+    const statsEl = document.getElementById('stats');
+    setTimeout(() => statsEl.textContent = '22,87,157 hours transcribed', 300);
+
+    document.getElementById('openDashboard').addEventListener('click', () => {
+      document.getElementById('dashboard').style.display = 'block';
+    });
+
+    document.getElementById('transcribeBtn').addEventListener('click', async () => {
+      const key = document.getElementById('apiKey').value.trim();
+      const link = document.getElementById('videoLink').value.trim();
+      const fileInput = document.getElementById('videoFile');
+      const file = fileInput.files[0];
+
+      if (!key) {
+        return alert('कृपया API Key डालें।');
+      }
+      if (!link && !file) {
+        return alert('कृपया वीडियो लिंक डालें या वीडियो अपलोड करें।');
+      }
+
+      document.getElementById('transcribeBtn').disabled = true;
+      document.getElementById('transcribeBtn').textContent = 'Transcribing…';
+
+      try {
+        let blob;
+        if (link) {
+          // लिंक से फाइल फ़ेच करें (CORS अनुमति हो तो)
+          const resp = await fetch(link);
+          if (!resp.ok) throw new Error('Unable to fetch from link');
+          blob = await resp.blob();
+        } else {
+          blob = file;
+        }
+
+        const form = new FormData();
+        form.append('file', blob, file?.name || 'input');
+        form.append('model', 'whisper-1');
+        form.append('response_format', 'text');
+
+        const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + key },
+          body: form,
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error?.message || res.statusText);
+        }
+        const text = await res.text();
+        const out = document.getElementById('output');
+        out.style.display = 'block';
+        out.textContent = text;
+      } catch (e) {
+        alert('Error: ' + e.message);
+      } finally {
+        document.getElementById('transcribeBtn').disabled = false;
+        document.getElementById('transcribeBtn').textContent = 'Transcribe';
+      }
+    });
+  </script>
+</body>
+</html>
